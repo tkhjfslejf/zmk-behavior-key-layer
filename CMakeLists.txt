@@ -1,3 +1,5 @@
+zephyr_include_directories(${ZMK_APP_DIR}/include)
+
 message(STATUS ">>> ZMK_BEHAVIOR_KEY_LAYER = ${CONFIG_ZMK_BEHAVIOR_KEY_LAYER}")
 
 if(CONFIG_ZMK_BEHAVIOR_KEY_LAYER)
