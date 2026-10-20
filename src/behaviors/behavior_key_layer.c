@@ -160,9 +160,47 @@ static int on_key_layer_released(
     return ZMK_BEHAVIOR_OPAQUE;
 }
 
+#if IS_ENABLED(CONFIG_ZMK_BEHAVIOR_METADATA)
+
+#include <zephyr/sys/util.h>
+
+static const struct behavior_parameter_value_metadata param1_values[] = {
+    {
+        .display_name = "Key",
+        .type = BEHAVIOR_PARAMETER_VALUE_TYPE_HID_USAGE,
+    },
+};
+
+static const struct behavior_parameter_value_metadata param2_values[] = {
+    {
+        .display_name = "Layer",
+        .type = BEHAVIOR_PARAMETER_VALUE_TYPE_LAYER_ID,
+    },
+};
+
+static const struct behavior_parameter_metadata_set param_metadata_sets[] = {
+    {
+        .param1_values = param1_values,
+        .param1_values_len = ARRAY_SIZE(param1_values),
+        .param2_values = param2_values,
+        .param2_values_len = ARRAY_SIZE(param2_values),
+    },
+};
+
+static const struct behavior_parameter_metadata metadata = {
+    .sets_len = ARRAY_SIZE(param_metadata_sets),
+    .sets = param_metadata_sets,
+};
+
+#endif
+
 static const struct behavior_driver_api key_layer_driver_api = {
     .binding_pressed = on_key_layer_pressed,
     .binding_released = on_key_layer_released,
+
+    #if IS_ENABLED(CONFIG_ZMK_BEHAVIOR_METADATA)
+    .parameter_metadata = &metadata,
+    #endif
 };
 
 BEHAVIOR_DT_INST_DEFINE(
