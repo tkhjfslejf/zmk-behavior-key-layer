@@ -1,4 +1,3 @@
 if(CONFIG_ZMK_BEHAVIOR_KEY_LAYER)
-  zephyr_library()
-  zephyr_library_sources(src/behaviors/behavior_key_layer.c)
+  target_sources_ifdef(CONFIG_ZMK_BEHAVIOR_KEY_LAYER app PRIVATE src/behaviors/behavior_key_layer.c)
 endif()
