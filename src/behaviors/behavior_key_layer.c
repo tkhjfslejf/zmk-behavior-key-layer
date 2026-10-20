@@ -19,7 +19,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
-#include <drivers/behavior.h>
+#include <drivers/zmk/behavior.h>
 
 #include <zmk/behavior.h>
 #include <zmk/event_manager.h>
