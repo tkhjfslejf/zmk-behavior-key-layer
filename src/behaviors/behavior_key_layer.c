@@ -24,6 +24,7 @@
 #include <zmk/behavior.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/position_state_changed.h>
+#include <zmk/events/keycode_state_changed.h>
 #include <zmk/keymap.h>
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
@@ -106,7 +107,7 @@ static int on_key_layer_pressed(
     state.simulated_key_down = false;
     state.layer_active = false;
 
-    int ret = zmk_keymap_layer_activate(state.layer, false);
+    int ret = zmk_keymap_layer_activate(state.layer);
     if (ret < 0) {
         LOG_ERR("Failed to activate layer %u: %d", state.layer, ret);
         state.active = false;
@@ -119,7 +120,7 @@ static int on_key_layer_pressed(
 
     if (ret < 0) {
         LOG_ERR("Failed to press simulated key: %d", ret);
-        (void)zmk_keymap_layer_deactivate(state.layer, false);
+        (void)zmk_keymap_layer_deactivate(state.layer);
         state.layer_active = false;
         state.active = false;
         return ZMK_BEHAVIOR_OPAQUE;
@@ -143,7 +144,7 @@ static int on_key_layer_released(
 
     int layer_ret = 0;
     if (state.layer_active) {
-        layer_ret = zmk_keymap_layer_deactivate(state.layer, false);
+        layer_ret = zmk_keymap_layer_deactivate(state.layer);
     }
 
     state.layer_active = false;
