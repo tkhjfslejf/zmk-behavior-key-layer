@@ -1,0 +1,8 @@
+description: >
+  Hold a simulated key while temporarily activating a layer.
+  Release the simulated key when another physical key is pressed,
+  but keep the layer active until the trigger key is released.
+
+compatible: "zmk,behavior-key-layer"
+
+include: two_param.yaml

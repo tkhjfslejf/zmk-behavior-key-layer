@@ -1,0 +1,6 @@
+name: zmk-behavior-key-layer
+build:
+  cmake: .
+  kconfig: Kconfig
+  settings:
+    dts_root: .

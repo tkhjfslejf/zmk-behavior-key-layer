@@ -1,0 +1,4 @@
+config ZMK_BEHAVIOR_KEY_LAYER
+    bool "Key plus temporary layer behavior"
+    default y
+    depends on ZMK
