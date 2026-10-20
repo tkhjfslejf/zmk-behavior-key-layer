@@ -90,10 +90,14 @@ static int on_key_layer_pressed(
     struct zmk_behavior_binding *binding,
     struct zmk_behavior_binding_event event) {
 
+    LOG_INF("key_layer pressed: position=%d param1=%d param2=%d",
+        event.position, binding->param1, binding->param2);
+
     if (state.active) {
         LOG_WRN("key-layer behavior already active; ignoring press");
         return ZMK_BEHAVIOR_OPAQUE;
     }
+
 
     state.active = true;
     state.trigger_position = event.position;
