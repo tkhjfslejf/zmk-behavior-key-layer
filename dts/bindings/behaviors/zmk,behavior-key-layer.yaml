@@ -11,4 +11,3 @@ properties:
   bindings:
     type: phandle-array
     required: false
-    
