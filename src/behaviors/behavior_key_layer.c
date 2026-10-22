@@ -154,7 +154,7 @@ static int on_key_layer_pressed(
         return ZMK_BEHAVIOR_OPAQUE;
     }
 
-    state = get_empty_key_layer_state()
+    state = get_empty_key_layer_state();
 
     if (state == NULL) {
         LOG_ERR("Failed to get_empty_key_layer_state");
