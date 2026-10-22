@@ -145,7 +145,7 @@ static int on_key_layer_pressed(
 
     struct key_layer_state *state = find_state_by_position(event.position);
 
-    if (state != NULL && state->active) {
+    if (state != NULL) {
         if (config->toggle_mode) {
             (void)deactivate_key_layer(state, event.timestamp);
         } else {
@@ -154,13 +154,11 @@ static int on_key_layer_pressed(
         return ZMK_BEHAVIOR_OPAQUE;
     }
 
-    if (state == NULL) {
-        state = get_empty_key_layer_state()
+    state = get_empty_key_layer_state()
 
-        if (state == NULL) {
-            LOG_ERR("Failed to get_empty_key_layer_state");
-            return ZMK_BEHAVIOR_OPAQUE;
-        }
+    if (state == NULL) {
+        LOG_ERR("Failed to get_empty_key_layer_state");
+        return ZMK_BEHAVIOR_OPAQUE;
     }
     
     state->position = event.position;
