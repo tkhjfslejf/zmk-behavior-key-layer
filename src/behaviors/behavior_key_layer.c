@@ -145,6 +145,8 @@ static int on_key_layer_pressed(
 
     struct key_layer_state *state = find_state_by_position(event.position);
 
+    LOG_DBG("on_key_layer_pressed - state: %p", state)
+
     if (state != NULL) {
         if (config->toggle_mode) {
             (void)deactivate_key_layer(state, event.timestamp);
