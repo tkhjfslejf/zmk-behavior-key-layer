@@ -11,4 +11,3 @@ properties:
   release_on_other_key:
     type: boolean
     required: false
-    default: false

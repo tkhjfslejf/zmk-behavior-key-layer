@@ -215,7 +215,7 @@ static const struct behavior_driver_api key_layer_driver_api = {
 
 #define KEY_LAYER_INST(n) \
     static const struct key_layer_config key_layer_config_##n = { \
-            .release_on_other_key = DT_INST_PROP(n, release_on_other_key), \
+            .release_on_other_key = DT_INST_PROP_OR(n, release_on_other_key, false), \
         }; \
     BEHAVIOR_DT_INST_DEFINE( \
         n, \
