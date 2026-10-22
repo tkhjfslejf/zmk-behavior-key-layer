@@ -61,7 +61,7 @@ static struct key_layer_state *find_state_by_position(uint32_t position) {
     return NULL;
 }
 
-static struct key_layer_state *get_empty_key_layer_state(uint32_t position) {
+static struct key_layer_state *get_empty_key_layer_state() {
     for (int i = 0; i < KEY_LAYER_MAX_ACTIVE; i++) {
         if (!key_layer_states[i].position) {
             return &key_layer_states[i];
