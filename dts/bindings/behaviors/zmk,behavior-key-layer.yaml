@@ -10,4 +10,5 @@ include: two_param.yaml
 properties:
   release_on_other_key:
     type: boolean
-    required: false
+  toggle-mode:
+    type: boolean

@@ -33,6 +33,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 struct key_layer_config {
     bool release_on_other_key;
+    bool toggle_mode;
 };
 
 struct key_layer_state {
@@ -43,6 +44,7 @@ struct key_layer_state {
     uint32_t keycode;
     uint8_t layer;
     bool release_on_other_key;
+    bool toggle_mode;
 };
 
 /*
@@ -95,6 +97,28 @@ static int key_layer_position_listener(const zmk_event_t *eh) {
 ZMK_LISTENER(key_layer, key_layer_position_listener);
 ZMK_SUBSCRIPTION(key_layer, zmk_position_state_changed);
 
+static int deactivate_key_layer(uint32_t timestamp) {
+    int key_ret = release_simulated_key(timestamp);
+
+    int layer_ret = 0;
+    if (state.layer_active) {
+        layer_ret = zmk_keymap_layer_deactivate(state.layer);
+    }
+
+    state.layer_active = false;
+    state.active = false;
+
+    if (key_ret < 0) {
+        LOG_ERR("Failed to release simulated key: %d", key_ret);
+    }
+
+    if (layer_ret < 0) {
+        LOG_ERR("Failed to deactivate layer: %d", layer_ret);
+    }
+
+    return (key_ret < 0) ? key_ret : layer_ret;
+}
+
 static int on_key_layer_pressed(
     struct zmk_behavior_binding *binding,
     struct zmk_behavior_binding_event event) {
@@ -102,13 +126,17 @@ static int on_key_layer_pressed(
     LOG_INF("key_layer pressed: position=%d param1=%d param2=%d",
         event.position, binding->param1, binding->param2);
 
+    const struct device *dev = zmk_behavior_get_binding(binding->behavior_dev);
+    const struct key_layer_config *config = dev->config;
+
     if (state.active) {
-        LOG_WRN("key-layer behavior already active; ignoring press");
+        if (config->toggle_mode && state.trigger_position == event.position) {
+            (void)deactivate_key_layer(event.timestamp);
+        } else {
+            LOG_WRN("key-layer behavior already active; ignoring press");
+        }
         return ZMK_BEHAVIOR_OPAQUE;
     }
-
-    const struct device *dev = zmk_behavior_get_binding(binding->behavior_dev);
-    struct key_layer_config *config = dev->config;
     
     state.active = true;
     state.trigger_position = event.position;
@@ -117,6 +145,7 @@ static int on_key_layer_pressed(
     state.simulated_key_down = false;
     state.layer_active = false;
     state.release_on_other_key = config->release_on_other_key;
+    state.toggle_mode = config->toggle_mode;
 
     int ret = zmk_keymap_layer_activate(state.layer);
     if (ret < 0) {
@@ -145,9 +174,14 @@ static int on_key_layer_released(
     struct zmk_behavior_binding *binding,
     struct zmk_behavior_binding_event event) {
 
-    ARG_UNUSED(binding);
-
     if (!state.active || state.trigger_position != event.position) {
+        return ZMK_BEHAVIOR_OPAQUE;
+    }
+
+    const struct device *dev = zmk_behavior_get_binding(binding->behavior_dev);
+    const struct key_layer_config *config = dev->config;
+
+    if (config->toggle_mode) {
         return ZMK_BEHAVIOR_OPAQUE;
     }
 
@@ -217,6 +251,7 @@ static const struct behavior_driver_api key_layer_driver_api = {
 #define KEY_LAYER_INST(n) \
     static const struct key_layer_config key_layer_config_##n = { \
             .release_on_other_key = DT_INST_PROP_OR(n, release_on_other_key, false), \
+            .toggle_mode = DT_INST_PROP_OR(n, toggle_mode, false), \
         }; \
     BEHAVIOR_DT_INST_DEFINE( \
         n, \
