@@ -31,6 +31,10 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #if DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT)
 
+struct key_layer_config {
+    bool release_on_other_key;
+};
+
 struct key_layer_state {
     bool active;
     bool simulated_key_down;
@@ -38,6 +42,7 @@ struct key_layer_state {
     uint32_t trigger_position;
     uint32_t keycode;
     uint8_t layer;
+    bool release_on_other_key;
 };
 
 /*
@@ -52,8 +57,7 @@ static int release_simulated_key(uint32_t timestamp) {
         return 0;
     }
 
-    int ret = raise_zmk_keycode_state_changed_from_encoded(
-        state.keycode, false, timestamp);
+    int ret = raise_zmk_keycode_state_changed_from_encoded(state.keycode, false, timestamp);
 
     if (ret == 0) {
         state.simulated_key_down = false;
@@ -63,8 +67,7 @@ static int release_simulated_key(uint32_t timestamp) {
 }
 
 static int key_layer_position_listener(const zmk_event_t *eh) {
-    const struct zmk_position_state_changed *ev =
-        as_zmk_position_state_changed(eh);
+    const struct zmk_position_state_changed *ev = as_zmk_position_state_changed(eh);
 
     if (ev == NULL || !ev->state || !state.active) {
         return ZMK_EV_EVENT_BUBBLE;
@@ -72,6 +75,11 @@ static int key_layer_position_listener(const zmk_event_t *eh) {
 
     /* Ignore the physical position that initiated this behavior. */
     if (ev->position == state.trigger_position) {
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+
+    /* Optionally release the simulated key on another physical press. */
+    if (!state.release_on_other_key) {
         return ZMK_EV_EVENT_BUBBLE;
     }
 
@@ -99,13 +107,15 @@ static int on_key_layer_pressed(
         return ZMK_BEHAVIOR_OPAQUE;
     }
 
-
+    const struct key_layer_config *config = binding->behavior_dev->config;
+    
     state.active = true;
     state.trigger_position = event.position;
     state.keycode = binding->param1;
     state.layer = binding->param2;
     state.simulated_key_down = false;
     state.layer_active = false;
+    state.release_on_other_key = config->release_on_other_key;
 
     int ret = zmk_keymap_layer_activate(state.layer);
     if (ret < 0) {
@@ -204,12 +214,15 @@ static const struct behavior_driver_api key_layer_driver_api = {
 };
 
 #define KEY_LAYER_INST(n) \
+    static const struct key_layer_config key_layer_config_##n = { \
+            .release_on_other_key = DT_INST_PROP(n, release_on_other_key), \
+        }; \
     BEHAVIOR_DT_INST_DEFINE( \
         n, \
         NULL, \
         NULL, \
         NULL, \
-        NULL, \
+        &key_layer_config_##n, \
         POST_KERNEL, \
         CONFIG_KERNEL_INIT_PRIORITY_DEFAULT, \
         &key_layer_driver_api \
