@@ -27,9 +27,13 @@
 #include <zmk/events/keycode_state_changed.h>
 #include <zmk/keymap.h>
 
+#include <string.h>
+
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #if DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT)
+
+#define KEY_LAYER_MAX_ACTIVE 10
 
 struct key_layer_config {
     bool release_on_other_key;
@@ -37,32 +41,47 @@ struct key_layer_config {
 };
 
 struct key_layer_state {
-    bool active;
-    bool simulated_key_down;
-    bool layer_active;
-    uint32_t trigger_position;
-    uint32_t keycode;
+    uint32_t position;
+    uint32_t key;
     uint8_t layer;
+    bool is_key_down;
+    bool is_layer_active;
     bool release_on_other_key;
-    bool toggle_mode;
 };
 
-/*
- * This implementation intentionally supports one active instance at a
- * time. Use a per-device state structure if multiple independent instances
- * must be held concurrently.
- */
-static struct key_layer_state state;
+static struct key_layer_state key_layer_states[KEY_LAYER_MAX_ACTIVE];
 
-static int release_simulated_key(uint32_t timestamp) {
-    if (!state.simulated_key_down) {
+static struct key_layer_state *find_state_by_position(uint32_t position) {
+    for (int i = 0; i < KEY_LAYER_MAX_ACTIVE; i++) {
+        if (key_layer_states[i].position == position) {
+            return &key_layer_states[i];
+        }
+    }
+
+    return NULL;
+}
+
+static struct key_layer_state *get_empty_key_layer_state(uint32_t position) {
+    for (int i = 0; i < KEY_LAYER_MAX_ACTIVE; i++) {
+        if (!key_layer_states[i].position) {
+            return &key_layer_states[i];
+        }
+    }
+
+    return NULL;
+}
+
+static int release_simulated_key(struct key_layer_state *state, uint32_t timestamp) {
+    if (!state.is_key_down) {
         return 0;
     }
 
-    int ret = raise_zmk_keycode_state_changed_from_encoded(state.keycode, false, timestamp);
+    int ret = raise_zmk_keycode_state_changed_from_encoded(state.key, false, timestamp);
 
     if (ret == 0) {
-        state.simulated_key_down = false;
+        state.is_key_down = false;
+    }else{
+        LOG_ERR("Failed to release key: %d", ret);
     }
 
     return ret;
@@ -71,24 +90,27 @@ static int release_simulated_key(uint32_t timestamp) {
 static int key_layer_position_listener(const zmk_event_t *eh) {
     const struct zmk_position_state_changed *ev = as_zmk_position_state_changed(eh);
 
-    if (ev == NULL || !ev->state || !state.active) {
+    if (ev == NULL || !ev->state) {
         return ZMK_EV_EVENT_BUBBLE;
     }
 
-    /* Ignore the physical position that initiated this behavior. */
-    if (ev->position == state.trigger_position) {
-        return ZMK_EV_EVENT_BUBBLE;
-    }
+    for (int i = 0; i < KEY_LAYER_MAX_ACTIVE; i++) {
+        struct key_layer_state *state = &key_layer_states[i];
 
-    /* Optionally release the simulated key on another physical press. */
-    if (!state.release_on_other_key) {
-        return ZMK_EV_EVENT_BUBBLE;
-    }
+        if (!state->position) {
+            continue;
+        }
 
-    /* Other physical key pressed: release key, leave layer active. */
-    int ret = release_simulated_key(ev->timestamp);
-    if (ret < 0) {
-        LOG_ERR("Failed to release simulated key: %d", ret);
+        /* 忽略当前实例自己的触发按键 */
+        if (ev->position == state->position) {
+            continue;
+        }
+
+        if (!state->release_on_other_key) {
+            continue;
+        }
+
+        release_simulated_key(state, ev->timestamp);
     }
 
     return ZMK_EV_EVENT_BUBBLE;
@@ -97,24 +119,19 @@ static int key_layer_position_listener(const zmk_event_t *eh) {
 ZMK_LISTENER(key_layer, key_layer_position_listener);
 ZMK_SUBSCRIPTION(key_layer, zmk_position_state_changed);
 
-static int deactivate_key_layer(uint32_t timestamp) {
-    int key_ret = release_simulated_key(timestamp);
+static int deactivate_key_layer(struct key_layer_state *state, uint32_t timestamp) {
+    int key_ret = release_simulated_key(state, timestamp);
 
     int layer_ret = 0;
-    if (state.layer_active) {
+    if (state.is_layer_active) {
         layer_ret = zmk_keymap_layer_deactivate(state.layer);
-    }
-
-    state.layer_active = false;
-    state.active = false;
-
-    if (key_ret < 0) {
-        LOG_ERR("Failed to release simulated key: %d", key_ret);
     }
 
     if (layer_ret < 0) {
         LOG_ERR("Failed to deactivate layer: %d", layer_ret);
     }
+
+    memset(state, 0, sizeof(state));
 
     return (key_ret < 0) ? key_ret : layer_ret;
 }
@@ -123,50 +140,51 @@ static int on_key_layer_pressed(
     struct zmk_behavior_binding *binding,
     struct zmk_behavior_binding_event event) {
 
-    LOG_INF("key_layer pressed: position=%d param1=%d param2=%d",
-        event.position, binding->param1, binding->param2);
-
     const struct device *dev = zmk_behavior_get_binding(binding->behavior_dev);
     const struct key_layer_config *config = dev->config;
 
-    if (state.active) {
-        if (config->toggle_mode && state.trigger_position == event.position) {
-            (void)deactivate_key_layer(event.timestamp);
+    struct key_layer_state *state = find_state_by_position(event.position);
+
+    if (state != NULL && state.active) {
+        if (config->toggle_mode) {
+            (void)deactivate_key_layer(state, event.timestamp);
         } else {
             LOG_WRN("key-layer behavior already active; ignoring press");
         }
         return ZMK_BEHAVIOR_OPAQUE;
     }
+
+    if (state == NULL) {
+        state = get_empty_key_layer_state()
+
+        if (state == NULL) {
+            LOG_ERR("Failed to get_empty_key_layer_state");
+            return ZMK_BEHAVIOR_OPAQUE;
+        }
+    }
     
-    state.active = true;
-    state.trigger_position = event.position;
-    state.keycode = binding->param1;
+    state.position = event.position;
+    state.key = binding->param1;
     state.layer = binding->param2;
-    state.simulated_key_down = false;
-    state.layer_active = false;
+    state.is_key_down = false;
+    state.is_layer_active = false;
     state.release_on_other_key = config->release_on_other_key;
-    state.toggle_mode = config->toggle_mode;
 
     int ret = zmk_keymap_layer_activate(state.layer);
     if (ret < 0) {
         LOG_ERR("Failed to activate layer %u: %d", state.layer, ret);
-        state.active = false;
         return ZMK_BEHAVIOR_OPAQUE;
     }
-    state.layer_active = true;
+    state.is_layer_active = true;
 
-    ret = raise_zmk_keycode_state_changed_from_encoded(
-        state.keycode, true, event.timestamp);
-
+    ret = raise_zmk_keycode_state_changed_from_encoded(state.key, true, event.timestamp);
     if (ret < 0) {
         LOG_ERR("Failed to press simulated key: %d", ret);
         (void)zmk_keymap_layer_deactivate(state.layer);
-        state.layer_active = false;
-        state.active = false;
         return ZMK_BEHAVIOR_OPAQUE;
     }
+    state.is_key_down = true;
 
-    state.simulated_key_down = true;
     return ZMK_BEHAVIOR_OPAQUE;
 }
 
@@ -174,7 +192,9 @@ static int on_key_layer_released(
     struct zmk_behavior_binding *binding,
     struct zmk_behavior_binding_event event) {
 
-    if (!state.active || state.trigger_position != event.position) {
+    struct key_layer_state *state = find_state_by_position(event.position);
+
+    if (state == NULL) {
         return ZMK_BEHAVIOR_OPAQUE;
     }
 
@@ -185,15 +205,12 @@ static int on_key_layer_released(
         return ZMK_BEHAVIOR_OPAQUE;
     }
 
-    int key_ret = release_simulated_key(event.timestamp);
+    int key_ret = release_simulated_key(state, event.timestamp);
 
     int layer_ret = 0;
-    if (state.layer_active) {
+    if (state.is_layer_active) {
         layer_ret = zmk_keymap_layer_deactivate(state.layer);
     }
-
-    state.layer_active = false;
-    state.active = false;
 
     if (key_ret < 0) {
         LOG_ERR("Failed to release simulated key: %d", key_ret);
@@ -201,6 +218,8 @@ static int on_key_layer_released(
     if (layer_ret < 0) {
         LOG_ERR("Failed to deactivate layer: %d", layer_ret);
     }
+
+    memset(state, 0, sizeof(state));
 
     return ZMK_BEHAVIOR_OPAQUE;
 }
