@@ -107,7 +107,8 @@ static int on_key_layer_pressed(
         return ZMK_BEHAVIOR_OPAQUE;
     }
 
-    const struct key_layer_config *config = binding->behavior_dev->config;
+    const struct device *dev = zmk_behavior_get_binding(binding->behavior_dev);
+    struct key_layer_config *config = dev->config;
     
     state.active = true;
     state.trigger_position = event.position;
