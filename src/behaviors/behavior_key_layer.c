@@ -145,9 +145,9 @@ static int on_key_layer_pressed(
 
     struct key_layer_state *state = find_state_by_position(event.position);
 
-    LOG_DBG("on_key_layer_pressed - state: %p", state)
+    LOG_DBG("on_key_layer_pressed - state: %p", state);
 
-    if (state != NULL) {
+    if (state) {
         if (config->toggle_mode) {
             (void)deactivate_key_layer(state, event.timestamp);
         } else {
@@ -158,7 +158,7 @@ static int on_key_layer_pressed(
 
     state = get_empty_key_layer_state();
 
-    if (state == NULL) {
+    if (!state) {
         LOG_ERR("Failed to get_empty_key_layer_state");
         return ZMK_BEHAVIOR_OPAQUE;
     }
@@ -194,7 +194,7 @@ static int on_key_layer_released(
 
     struct key_layer_state *state = find_state_by_position(event.position);
 
-    if (state == NULL) {
+    if (!state) {
         return ZMK_BEHAVIOR_OPAQUE;
     }
 
