@@ -7,10 +7,6 @@
  *   - trigger press: activate layer and press the configured key
  *   - another physical key press: release configured key only
  *   - trigger release: ensure key is released and deactivate layer
- *
- * NOTE: This module is a starting implementation and must be compiled
- * against the exact ZMK revision used by your firmware. ZMK internal
- * APIs and event structures can vary between revisions.
  */
 
 #define DT_DRV_COMPAT zmk_behavior_key_layer
@@ -115,7 +111,7 @@ static int key_layer_position_listener(const zmk_event_t *eh) {
             continue;
         }
 
-        release_simulated_key(state, ev->timestamp);
+        (void)release_simulated_key(state, ev->timestamp);
     }
 
     return ZMK_EV_EVENT_BUBBLE;
@@ -136,7 +132,7 @@ static int deactivate_key_layer(struct key_layer_state *state, uint32_t timestam
         LOG_ERR("Failed to deactivate layer: %d", layer_ret);
     }
 
-    memset(state, 0, sizeof(state));
+    memset(state, 0, sizeof(*state));
 
     return (key_ret < 0) ? key_ret : layer_ret;
 }
@@ -167,7 +163,7 @@ static int on_key_layer_pressed(
         return ZMK_BEHAVIOR_OPAQUE;
     }
     
-    state->active = true
+    state->active = true;
     state->position = event.position;
     state->key = binding->param1;
     state->layer = binding->param2;
@@ -210,21 +206,7 @@ static int on_key_layer_released(
         return ZMK_BEHAVIOR_OPAQUE;
     }
 
-    int key_ret = release_simulated_key(state, event.timestamp);
-
-    int layer_ret = 0;
-    if (state->layer_active) {
-        layer_ret = zmk_keymap_layer_deactivate(state->layer);
-    }
-
-    if (key_ret < 0) {
-        LOG_ERR("Failed to release simulated key: %d", key_ret);
-    }
-    if (layer_ret < 0) {
-        LOG_ERR("Failed to deactivate layer: %d", layer_ret);
-    }
-
-    memset(state, 0, sizeof(state));
+    (void)deactivate_key_layer(state, event.timestamp);
 
     return ZMK_BEHAVIOR_OPAQUE;
 }
