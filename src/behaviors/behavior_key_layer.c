@@ -33,7 +33,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #if DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT)
 
-#define KEY_LAYER_MAX_ACTIVE 10
+#define KEY_LAYER_MAX_ACTIVE 5
 
 struct key_layer_config {
     bool release_on_other_key;
@@ -51,22 +51,26 @@ struct key_layer_state {
 
 static struct key_layer_state key_layer_states[KEY_LAYER_MAX_ACTIVE];
 
-static struct key_layer_state *find_state_by_position(uint32_t position) {
+static struct key_layer_state* find_state_by_position(uint32_t position) {
     for (int i = 0; i < KEY_LAYER_MAX_ACTIVE; i++) {
         if (key_layer_states[i].position == position) {
             return &key_layer_states[i];
         }
     }
 
+    LOG_DBG("find_state_by_position: not found");
+
     return NULL;
 }
 
-static struct key_layer_state *get_empty_key_layer_state() {
+static struct key_layer_state* get_empty_key_layer_state() {
     for (int i = 0; i < KEY_LAYER_MAX_ACTIVE; i++) {
         if (!key_layer_states[i].position) {
             return &key_layer_states[i];
         }
     }
+
+    LOG_DBG("get_empty_key_layer_state: not found");
 
     return NULL;
 }
