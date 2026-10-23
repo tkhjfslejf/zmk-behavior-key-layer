@@ -29,7 +29,7 @@ LOG_MODULE_REGISTER(zmk_key_layer, CONFIG_ZMK_LOG_LEVEL);
 
 #if DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT)
 
-#define KEY_LAYER_MAX_ACTIVE 5
+#define KEY_LAYER_MAX_ACTIVE 6
 
 struct key_layer_config {
     bool release_on_other_key;
