@@ -25,7 +25,7 @@
 
 #include <string.h>
 
-LOG_MODULE_DECLARE(zmk_key_layer, CONFIG_ZMK_LOG_LEVEL);
+LOG_MODULE_REGISTER(zmk_key_layer, CONFIG_ZMK_LOG_LEVEL);
 
 #if DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT)
 
